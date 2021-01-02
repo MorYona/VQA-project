@@ -10,6 +10,7 @@ import sys
 import pickle as cPickle
 import utils
 import time
+import numpy as np
 
 #from dataset import Dictionary
 
@@ -175,6 +176,7 @@ class VQA(Dataset):
         ''' VQA dataset'''
         
         def __init__(self):
+            
             '''open json files'''
             path = 'D:\MSc\קורסים\למידה עמוקה\VQA'
             train_images_path ='D:\MSc\קורסים\למידה עמוקה\VQA\train'
@@ -189,20 +191,29 @@ class VQA(Dataset):
             with open(train_questions_file) as f:
               train_questions = json.load(f)['questions']
               
-            
             # with open(val_answer_file) as f:
             #     val_annotations = json.load(f)['annotations']
             
             # with open(val_questions_file) as f:
             #   val_questions = json.load(f)['questions']
             
+            '''init self parameters'''
+            self.max_question_len = 0
+            self.max_answer_len = 0
             self.train_annotations = train_annotations
             self.train_questions = train_questions
             
-                 
+
+            for entry in range(len(self.train_annotations)):
+                         
+                    if len(self.train_questions[entry]['question'])>self.max_question_len:
+                        self.max_question_len = len(self.train_questions[entry]['question'])
+                        #print(f'max question {self.max_question_len}')
+                    
+                    if len(self.train_annotations[entry]['multiple_choice_answer'])>self.max_answer_len:
+                        self.max_answer_len = len(self.train_annotations[entry]['multiple_choice_answer'])
+                        #print(f'max answer {self.max_answer_len}')
             
-            
-    
             
         def _get_entires(self,train_flag):
             ''' create a list with question,question id,image id and answer '''
@@ -216,11 +227,11 @@ class VQA(Dataset):
                     question_id = self.train_annotations[entry]['question_id']
                     image_id = self.train_annotations[entry]['image_id']
                     train_entries.append((question_id,image_id,question,answer))
-                
+            
                 self.train_entries =train_entries
                 return train_entries
             
-            if train_flag == 0:
+            elif train_flag == 0:
                 val_entries =[]
                 for entry in range(len(self.train_annotations)):
                     question = self.val_questions[entry]['question']                    
@@ -231,31 +242,60 @@ class VQA(Dataset):
                     image_id = self.val_annotations[entry]['image_id']
                     train_entries.append((question_id,image_id,question,answer))
                     
-                self.val_entries =val_entries
+                self.val_entries = val_entries
                 return val_entries
             
+        def number_of_samples(self,train_flag):
+            ''' return the number of samples in the dataset'''
+            if train_flag == 1:
+                return len(self.train_entries)
             
+            elif train_flag == 0:
+                return len(self.val_entries)
+        
+        
         def tokenize(self,train_flag):
+            ''' split the questions and answers to words'''
             if train_flag == 1:
                 train_tokens = []
-                for entry in range(len(self.train_entries)):
+                number_of_samples = self.number_of_samples(train_flag=1)
+                for entry in range(number_of_samples):
                     question_token = self.train_entries[entry][2].split(" ")  
                     answer_token = self.train_entries[entry][3].split(" ")
                     train_tokens.append((question_token,answer_token))
                     
                 return train_tokens
             
-        def token(self):
-            ''' split the questions and answers to words'''
-            
+            elif train_flag == 0:
+                val_tokens = []
+                number_of_samples = self.number_of_samples(train_flag=0)
+                for entry in range(number_of_samples):
+                    question_token = self.val_entries[entry][2].split(" ")  
+                    answer_token = self.val_entries[entry][3].split(" ")
+                    val_tokens.append((question_token,answer_token))
+                    
+                return val_tokens
+        
+
+        def __getitem__(self, index,train_flag):
+            ''' the item is (image,question,answer)'''
+          
+            if train_flag == 1:
+                #create vector with zeros at max size 
+                # question_vector = torch.zeros(self.max_question_len)
+                # answer_vector = torch.zeros(self.max_answer_len)
+                return self.train_entries[index]
+                
 
 if __name__ == '__main__': 
     start = time.time()
     dataset = VQA()
     mor = dataset._get_entires(train_flag=1)
-    niko = dataset.tokenize(train_flag=1)
+    # niko = dataset.tokenize(train_flag=1)
+    print(dataset.__getitem__(3,1))
     end = time.time()
-    print(f"learining time{end-start}")
+    print(f"run time {end-start:.2}")
+
 
 
 
