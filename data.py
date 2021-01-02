@@ -9,6 +9,7 @@ import os
 import sys
 import pickle as cPickle
 import utils
+import time
 
 #from dataset import Dictionary
 
@@ -195,10 +196,11 @@ class VQA(Dataset):
             # with open(val_questions_file) as f:
             #   val_questions = json.load(f)['questions']
             
- 
-                
             self.train_annotations = train_annotations
             self.train_questions = train_questions
+            
+                 
+            
             
     
             
@@ -209,18 +211,51 @@ class VQA(Dataset):
                 for entry in range(len(self.train_annotations)):
                     question = self.train_questions[entry]['question']                    
                     answer = self.train_annotations[entry]['multiple_choice_answer']
+                    answer = preprocess_answer(answer)
+                    question = preprocess_answer(question)
                     question_id = self.train_annotations[entry]['question_id']
                     image_id = self.train_annotations[entry]['image_id']
                     train_entries.append((question_id,image_id,question,answer))
-                print(answer)
-                print(question)
+                
+                self.train_entries =train_entries
                 return train_entries
+            
+            if train_flag == 0:
+                val_entries =[]
+                for entry in range(len(self.train_annotations)):
+                    question = self.val_questions[entry]['question']                    
+                    answer = self.val_annotations[entry]['multiple_choice_answer']
+                    answer = preprocess_answer(answer)
+                    question = question.lower()
+                    question_id = self.val_annotations[entry]['question_id']
+                    image_id = self.val_annotations[entry]['image_id']
+                    train_entries.append((question_id,image_id,question,answer))
+                    
+                self.val_entries =val_entries
+                return val_entries
+            
+            
+        def tokenize(self,train_flag):
+            if train_flag == 1:
+                train_tokens = []
+                for entry in range(len(self.train_entries)):
+                    question_token = self.train_entries[entry][2].split(" ")  
+                    answer_token = self.train_entries[entry][3].split(" ")
+                    train_tokens.append((question_token,answer_token))
+                    
+                return train_tokens
+            
+        def token(self):
+            ''' split the questions and answers to words'''
+            
 
 if __name__ == '__main__': 
-
+    start = time.time()
     dataset = VQA()
     mor = dataset._get_entires(train_flag=1)
-
+    niko = dataset.tokenize(train_flag=1)
+    end = time.time()
+    print(f"learining time{end-start}")
 
 
 
