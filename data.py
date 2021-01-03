@@ -173,10 +173,8 @@ def filter_answers(answers_dset, min_occurence):
 
 
 class VQA(Dataset):
-        ''' VQA dataset'''
-        
+        ''' VQA dataset for open ended questions '''
         def __init__(self):
-            
             '''open json files'''
             path = 'D:\MSc\קורסים\למידה עמוקה\VQA'
             train_images_path ='D:\MSc\קורסים\למידה עמוקה\VQA\train'
@@ -204,16 +202,12 @@ class VQA(Dataset):
             self.train_questions = train_questions
             self.filtered_answers_dict = filter_answers(train_annotations,9)
             
-
+            
             for entry in range(len(self.train_annotations)):
                          
                     if len(self.train_questions[entry]['question'])>self.max_question_len:
                         self.max_question_len = len(self.train_questions[entry]['question'])
                         #print(f'max question {self.max_question_len}')
-                    
-                    if len(self.train_annotations[entry]['multiple_choice_answer'])>self.max_answer_len:
-                        self.max_answer_len = len(self.train_annotations[entry]['multiple_choice_answer'])
-                        #print(f'max answer {self.max_answer_len}')
             
             
         def _get_entires(self,train_flag):
@@ -283,7 +277,7 @@ class VQA(Dataset):
         def create_question_dict(self):
             '''the question is a bag of word vector that each word is a number'''
             question_word_dict = {}
-            index = 0
+            index = 1
             question_word_list =[]
             for token in range(len(self.train_tokens)):
                 #run on question answer token
@@ -294,19 +288,20 @@ class VQA(Dataset):
                         question_word_list.append(self.train_tokens[token][0][word])
                         question_word_dict[self.train_tokens[token][0][word]] = index
                         index += 1
-
+            self.question_word_dict =question_word_dict
             return question_word_dict
         
         def create_answer_dict(self):
             ''' all the answer even if 3 word will be a class with an index'''
-            index = 0
+            index = 1
             answer_dict = {}
             answer_list =[]
             for token in range(len(self.train_tokens)):
                 if self.train_tokens[token][1] not in answer_list:
                     answer_list.append(self.train_tokens[token][1])
                     answer_dict[self.train_tokens[token][1]] = index
-                    index += 1                    
+                    index += 1
+            self.answer_dict = answer_dict                    
             return answer_dict 
         
         def __getitem__(self, index,train_flag):
@@ -314,56 +309,35 @@ class VQA(Dataset):
             if train_flag == 1:
                 '''create vector with zeros at max size '''
                 question_vector = torch.zeros(self.max_question_len)
-                answer_vector = torch.zeros(self.max_answer_len)
+                answer_vector = self.answer_dict[self.train_tokens[index][1]]
+                #transform the question words to index
+                for word in range(len(self.train_tokens[index][0])):
+                     question_vector[word] = self.question_word_dict[self.train_tokens[index][0][word]]
+                
+                
                 '''sharon add here the image preprocess and what the model need to get '''
-                return self.train_entries[index]
+                
+                
+                
+                item = (question_vector,answer_vector)
+                return item
                 
 
 if __name__ == '__main__': 
     start = time.time()
     dataset = VQA()
-    
-    mor = dataset._get_entires(train_flag=1)
-    
-    niko = dataset.tokenize(train_flag=1)
-    print(dataset.__getitem__(4,1))
+    #create entries
+    dataset._get_entires(train_flag=1)
+    #tokenize
+    dataset.tokenize(train_flag=1)
+    #create the dictioneries 
     shiki = dataset.create_question_dict()
     sas = dataset.create_answer_dict()
+    #test get item function
+    print(dataset.__getitem__(90,1))
     end = time.time()
     print(f"run time {end-start:.4}")
     
-    
-    # train_answer_file = 'v2_mscoco_train2014_annotations.json'
-    # with open(train_answer_file) as f:
-    #          train_annotations = json.load(f)['annotations']
-
-    # filter_answ = filter_answers(train_annotations,9)
-    # loop = range(len(mor))
-    # for entry in range(len(mor)):
-    #     answer = mor[entry][3]
-    #     if answer not in filter_answ:
-    #         mor.remove(mor[entry])
-            
-    #         if entry == range(len(mor)):
-    #             break
-                
-    # print(mor)
-
-    #           answer_dict = {}
-    # index = 0
-    # answer_list =[]  
-    # for token in range(len(niko)):
-
-    #     if niko[token][1] not in  answer_list:
-    #         #add the answer to the dict
-    #         answer_list.append(niko[token][1])
-    #         answer_dict[niko[token][1]] = index
-    #         index += 1
-            
-    # print(answer_dict)
-
-
-
   
 
 
