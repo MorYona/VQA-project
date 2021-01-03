@@ -229,6 +229,7 @@ class VQA(Dataset):
                     train_entries.append((question_id,image_id,question,answer))
             
                 self.train_entries =train_entries
+                print(self.train_entries[2])
                 return train_entries
             
             elif train_flag == 0:
@@ -263,7 +264,7 @@ class VQA(Dataset):
                     question_token = self.train_entries[entry][2].split(" ")  
                     answer_token = self.train_entries[entry][3].split(" ")
                     train_tokens.append((question_token,answer_token))
-                    
+                self.train_tokens = train_tokens  
                 return train_tokens
             
             elif train_flag == 0:
@@ -273,17 +274,35 @@ class VQA(Dataset):
                     question_token = self.val_entries[entry][2].split(" ")  
                     answer_token = self.val_entries[entry][3].split(" ")
                     val_tokens.append((question_token,answer_token))
-                    
+                self.val_tokens = val_tokens    
                 return val_tokens
         
+        def create_question_dict(self):
+            '''the question is a bag of word vector that each word is a number'''
+            question_word_dict = {}
+            index = 0
+            question_word_list =[]
+            for token in range(len(self.train_tokens)):
+                #run on question answer token
+                for word in range(len(self.train_tokens[token][0])):
+                    #check if the word is part of the dict
+                    if self.train_tokens[token][0][word] not in question_word_list:
+                        #add the word to the dict
+                        question_word_list.append(self.train_tokens[token][0][word])
+                        question_word_dict[self.train_tokens[token][0][word]] = index
+                        index += 1
 
+            return question_word_dict
+
+            
         def __getitem__(self, index,train_flag):
             ''' the item is (image,question,answer)'''
           
             if train_flag == 1:
-                #create vector with zeros at max size 
-                # question_vector = torch.zeros(self.max_question_len)
-                # answer_vector = torch.zeros(self.max_answer_len)
+                '''create vector with zeros at max size '''
+                question_vector = torch.zeros(self.max_question_len)
+                answer_vector = torch.zeros(self.max_answer_len)
+                '''sharon add here the image preprocess and what the model need to get '''
                 return self.train_entries[index]
                 
 
@@ -291,13 +310,13 @@ if __name__ == '__main__':
     start = time.time()
     dataset = VQA()
     mor = dataset._get_entires(train_flag=1)
-    # niko = dataset.tokenize(train_flag=1)
-    print(dataset.__getitem__(3,1))
+    niko = dataset.tokenize(train_flag=1)
+    print(dataset.__getitem__(4,1))
+    shiki = dataset.create_question_dict()
     end = time.time()
-    print(f"run time {end-start:.2}")
-
-
-
+    print(f"run time {end-start:.4}")
+    
+  
 
 
 
