@@ -202,6 +202,7 @@ class VQA(Dataset):
             self.max_answer_len = 0
             self.train_annotations = train_annotations
             self.train_questions = train_questions
+            self.filtered_answers_dict = filter_answers(train_annotations,9)
             
 
             for entry in range(len(self.train_annotations)):
@@ -218,15 +219,17 @@ class VQA(Dataset):
         def _get_entires(self,train_flag):
             ''' create a list with question,question id,image id and answer '''
             if train_flag == 1:
+                
                 train_entries =[]
                 for entry in range(len(self.train_annotations)):
-                    question = self.train_questions[entry]['question']                    
-                    answer = self.train_annotations[entry]['multiple_choice_answer']
-                    answer = preprocess_answer(answer)
-                    question = preprocess_answer(question)
-                    question_id = self.train_annotations[entry]['question_id']
-                    image_id = self.train_annotations[entry]['image_id']
-                    train_entries.append((question_id,image_id,question,answer))
+                    if self.train_annotations[entry]['multiple_choice_answer'] in self.filtered_answers_dict:
+                        question = self.train_questions[entry]['question']                    
+                        answer = self.train_annotations[entry]['multiple_choice_answer']
+                        
+                        question = preprocess_answer(question)
+                        question_id = self.train_annotations[entry]['question_id']
+                        image_id = self.train_annotations[entry]['image_id']
+                        train_entries.append((question_id,image_id,question,answer))
             
                 self.train_entries =train_entries
                 print(self.train_entries[2])
@@ -262,7 +265,7 @@ class VQA(Dataset):
                 number_of_samples = self.number_of_samples(train_flag=1)
                 for entry in range(number_of_samples):
                     question_token = self.train_entries[entry][2].split(" ")  
-                    answer_token = self.train_entries[entry][3].split(" ")
+                    answer_token = self.train_entries[entry][3]
                     train_tokens.append((question_token,answer_token))
                 self.train_tokens = train_tokens  
                 return train_tokens
@@ -293,11 +296,21 @@ class VQA(Dataset):
                         index += 1
 
             return question_word_dict
-
-            
+        
+        def create_answer_dict(self):
+            ''' all the answer even if 3 word will be a class with an index'''
+            index = 0
+            answer_dict = {}
+            answer_list =[]
+            for token in range(len(self.train_tokens)):
+                if self.train_tokens[token][1] not in answer_list:
+                    answer_list.append(self.train_tokens[token][1])
+                    answer_dict[self.train_tokens[token][1]] = index
+                    index += 1                    
+            return answer_dict 
+        
         def __getitem__(self, index,train_flag):
             ''' the item is (image,question,answer)'''
-          
             if train_flag == 1:
                 '''create vector with zeros at max size '''
                 question_vector = torch.zeros(self.max_question_len)
@@ -309,13 +322,48 @@ class VQA(Dataset):
 if __name__ == '__main__': 
     start = time.time()
     dataset = VQA()
+    
     mor = dataset._get_entires(train_flag=1)
+    
     niko = dataset.tokenize(train_flag=1)
     print(dataset.__getitem__(4,1))
     shiki = dataset.create_question_dict()
+    sas = dataset.create_answer_dict()
     end = time.time()
     print(f"run time {end-start:.4}")
     
+    
+    # train_answer_file = 'v2_mscoco_train2014_annotations.json'
+    # with open(train_answer_file) as f:
+    #          train_annotations = json.load(f)['annotations']
+
+    # filter_answ = filter_answers(train_annotations,9)
+    # loop = range(len(mor))
+    # for entry in range(len(mor)):
+    #     answer = mor[entry][3]
+    #     if answer not in filter_answ:
+    #         mor.remove(mor[entry])
+            
+    #         if entry == range(len(mor)):
+    #             break
+                
+    # print(mor)
+
+    #           answer_dict = {}
+    # index = 0
+    # answer_list =[]  
+    # for token in range(len(niko)):
+
+    #     if niko[token][1] not in  answer_list:
+    #         #add the answer to the dict
+    #         answer_list.append(niko[token][1])
+    #         answer_dict[niko[token][1]] = index
+    #         index += 1
+            
+    # print(answer_dict)
+
+
+
   
 
 
