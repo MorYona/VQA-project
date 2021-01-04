@@ -180,8 +180,8 @@ class VQA(Dataset):
             train_images_path ='D:\MSc\קורסים\למידה עמוקה\VQA\train'
             train_questions_file = 'v2_OpenEnded_mscoco_train2014_questions.json'
             train_answer_file = 'v2_mscoco_train2014_annotations.json'
-            # val_questions_file = 'v2_OpenEnded_mscoco_val2014_questions.json'
-            # val_answer_file = 'v2_mscoco_val2014_annotations.json'
+            val_questions_file = 'v2_OpenEnded_mscoco_val2014_questions.json'
+            val_answer_file = 'v2_mscoco_val2014_annotations.json'
     
             with open(train_answer_file) as f:
                 train_annotations = json.load(f)['annotations']
@@ -189,31 +189,25 @@ class VQA(Dataset):
             with open(train_questions_file) as f:
               train_questions = json.load(f)['questions']
               
-            # with open(val_answer_file) as f:
-            #     val_annotations = json.load(f)['annotations']
+            with open(val_answer_file) as f:
+                val_annotations = json.load(f)['annotations']
             
-            # with open(val_questions_file) as f:
-            #   val_questions = json.load(f)['questions']
+            with open(val_questions_file) as f:
+              val_questions = json.load(f)['questions']
             
             '''init self parameters'''
-            self.max_question_len = 0
-            self.max_answer_len = 0
+            self.max_question_len = 20 # known information about the dataset
             self.train_annotations = train_annotations
             self.train_questions = train_questions
+            self.val_annotations = val_annotations
+            self.val_questions = val_questions
             self.filtered_answers_dict = filter_answers(train_annotations,9)
             
-            
-            for entry in range(len(self.train_annotations)):
-                         
-                    if len(self.train_questions[entry]['question'])>self.max_question_len:
-                        self.max_question_len = len(self.train_questions[entry]['question'])
-                        #print(f'max question {self.max_question_len}')
             
             
         def _get_entires(self,train_flag):
             ''' create a list with question,question id,image id and answer '''
             if train_flag == 1:
-                
                 train_entries =[]
                 for entry in range(len(self.train_annotations)):
                     if self.train_annotations[entry]['multiple_choice_answer'] in self.filtered_answers_dict:
@@ -231,14 +225,15 @@ class VQA(Dataset):
             
             elif train_flag == 0:
                 val_entries =[]
-                for entry in range(len(self.train_annotations)):
+                for entry in range(len(self.val_annotations)):
+                    # here I cant fillter the answers
                     question = self.val_questions[entry]['question']                    
                     answer = self.val_annotations[entry]['multiple_choice_answer']
-                    answer = preprocess_answer(answer)
-                    question = question.lower()
+                    
+                    question = preprocess_answer(question)
                     question_id = self.val_annotations[entry]['question_id']
                     image_id = self.val_annotations[entry]['image_id']
-                    train_entries.append((question_id,image_id,question,answer))
+                    val_entries.append((question_id,image_id,question,answer))
                     
                 self.val_entries = val_entries
                 return val_entries
@@ -269,7 +264,7 @@ class VQA(Dataset):
                 number_of_samples = self.number_of_samples(train_flag=0)
                 for entry in range(number_of_samples):
                     question_token = self.val_entries[entry][2].split(" ")  
-                    answer_token = self.val_entries[entry][3].split(" ")
+                    answer_token = self.val_entries[entry][3]
                     val_tokens.append((question_token,answer_token))
                 self.val_tokens = val_tokens    
                 return val_tokens
@@ -288,21 +283,45 @@ class VQA(Dataset):
                         question_word_list.append(self.train_tokens[token][0][word])
                         question_word_dict[self.train_tokens[token][0][word]] = index
                         index += 1
+                        
+            for token in range(len(self.val_tokens)):
+                #run on question answer token
+                for word in range(len(self.val_tokens[token][0])):
+                    #check if the word is part of the dict
+                    if self.val_tokens[token][0][word] not in question_word_list:
+                        #add the word to the dict
+                        question_word_list.append(self.val_tokens[token][0][word])
+                        question_word_dict[self.val_tokens[token][0][word]] = index
+                        index += 1
+                        
             self.question_word_dict =question_word_dict
             return question_word_dict
         
         def create_answer_dict(self):
-            ''' all the answer even if 3 word will be a class with an index'''
+            ''' 
+            all the answers even if 3 word will be a class with an index,
+            and also need to include the unfiltered answers and validation answers 
+            '''
             index = 1
             answer_dict = {}
             answer_list =[]
-            for token in range(len(self.train_tokens)):
-                if self.train_tokens[token][1] not in answer_list:
-                    answer_list.append(self.train_tokens[token][1])
-                    answer_dict[self.train_tokens[token][1]] = index
-                    index += 1
-            self.answer_dict = answer_dict                    
-            return answer_dict 
+            processes_answers = []
+            for entry in self.train_annotations:
+                x = preprocess_answer(entry['multiple_choice_answer'])
+                if x not in processes_answers:
+                    answer_dict[x] = index
+                    processes_answers.append(x)
+                    index +=1
+                    
+            for entry in self.val_annotations:
+                x = preprocess_answer(entry['multiple_choice_answer'])
+                if x not in processes_answers:
+                    answer_dict[x] = index
+                    processes_answers.append(x)
+                    index +=1
+            
+            self.answer_dict = answer_dict
+            return answer_dict
         
         def __getitem__(self, index,train_flag):
             ''' the item is (image,question,answer)'''
@@ -314,31 +333,75 @@ class VQA(Dataset):
                 for word in range(len(self.train_tokens[index][0])):
                      question_vector[word] = self.question_word_dict[self.train_tokens[index][0][word]]
                 
+                item = (question_vector,answer_vector)
+                return item
                 
                 '''sharon add here the image preprocess and what the model need to get '''
                 
-                
-                
-                item = (question_vector,answer_vector)
-                return item
+            elif train_flag == 0: 
+                 question_vector = torch.zeros(self.max_question_len)
+                 answer_vector = self.answer_dict[self.val_tokens[index][1]]
+                 for word in range(len(self.val_tokens[index][0])):
+                     question_vector[word] = self.question_word_dict[self.val_tokens[index][0][word]]
+                 item = (question_vector,answer_vector)
+                 return item
                 
 
 if __name__ == '__main__': 
     start = time.time()
     dataset = VQA()
     #create entries
-    dataset._get_entires(train_flag=1)
+    mor1 = dataset._get_entires(train_flag=1)
+    mor = dataset._get_entires(train_flag=0)
+    
+    sas = dataset.create_answer_dict()
     #tokenize
-    dataset.tokenize(train_flag=1)
+    niko = dataset.tokenize(train_flag=0)
+    niko = dataset.tokenize(train_flag=1)
     #create the dictioneries 
     shiki = dataset.create_question_dict()
-    sas = dataset.create_answer_dict()
-    #test get item function
+
     print(dataset.__getitem__(90,1))
     end = time.time()
     print(f"run time {end-start:.4}")
     
-  
+    
+    
+    # train_answer_file = 'v2_mscoco_train2014_annotations.json'
+    # val_answer_file = 'v2_mscoco_val2014_annotations.json'
+    # with open(train_answer_file) as f:
+    #     train_annotations = json.load(f)['annotations']
+    
+       
+    # with open(val_answer_file) as f:
+    #     val_annotations = json.load(f)['annotations']
+        
+    # index = 1
+    # answer_dict = {}
+    # answer_list =[]
+    # processes_answers = []
+    # for entry in train_annotations:
+    #     x = preprocess_answer(entry['multiple_choice_answer'])
+    #     if x not in processes_answers:
+    #         answer_dict[x] = index
+    #         processes_answers.append(x)
+    #         index +=1
+            
+    # for entry in val_annotations:
+    #     x = preprocess_answer(entry['multiple_choice_answer'])
+    #     if x not in processes_answers:
+    #         answer_dict[x] = index
+    #         processes_answers.append(x)
+    #         index +=1
+    # # for token in range(len(processes_train_answers)):
+    # #     if self.train_annotations[token]['multiple_choice_answer'] not in answer_list:
+    # #         answer_list.append(self.train_annotations[token]['multiple_choice_answer'])
+    # #         answer_dict[self.train_annotations[token]['multiple_choice_answer']] = index
+    # #         index += 1
+    
+    
+    # # self.answer_dict = answer_dict                    
+    # # return answer_dict 
 
 
 
