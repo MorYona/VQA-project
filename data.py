@@ -11,6 +11,8 @@ import pickle as cPickle
 import utils
 import time
 import numpy as np
+import torchvision.transforms as transforms
+from PIL import Image
 
 #from dataset import Dictionary
 
@@ -100,12 +102,6 @@ def create_ans2label(occurence, name, cache_root):
         ans2label[answer] = label
         label += 1
         
-    # utils.create_dir(cache_root)
-
-    # cache_file = os.path.join(cache_root, name+'_ans2label.pkl')
-    # cPickle.dump(ans2label, open(cache_file, 'wb'))
-    # cache_file = os.path.join(cache_root, name+'_label2ans.pkl')
-    # cPickle.dump(label2ans, open(cache_file, 'wb'))
 
     return ans2label
 
@@ -204,7 +200,8 @@ class VQA(Dataset):
             self.filtered_answers_dict = filter_answers(train_annotations,9)
             
             
-            
+             ############################
+    
         def _get_entires(self,train_flag):
             ''' create a list with question,question id,image id and answer '''
             if train_flag == 1:
@@ -255,7 +252,8 @@ class VQA(Dataset):
                 for entry in range(number_of_samples):
                     question_token = self.train_entries[entry][2].split(" ")  
                     answer_token = self.train_entries[entry][3]
-                    train_tokens.append((question_token,answer_token))
+                    image_token = self.train_entries[entry][1]
+                    train_tokens.append((question_token,answer_token,image_token))
                 self.train_tokens = train_tokens  
                 return train_tokens
             
@@ -265,7 +263,8 @@ class VQA(Dataset):
                 for entry in range(number_of_samples):
                     question_token = self.val_entries[entry][2].split(" ")  
                     answer_token = self.val_entries[entry][3]
-                    val_tokens.append((question_token,answer_token))
+                    image_token = self.val_entries[entry][1]
+                    val_tokens.append((question_token,answer_token,image_token))
                 self.val_tokens = val_tokens    
                 return val_tokens
         
@@ -323,6 +322,44 @@ class VQA(Dataset):
             self.answer_dict = answer_dict
             return answer_dict
         
+        def create_image_dict(self):
+                #for train images 
+                self.path = r'D:\MSc\קורסים\למידה עמוקה\VQA\train'
+                self.id_to_imagename = {}
+                for image_file in os.listdir(self.path): # iterate over all the files in the path directory
+                    if not image_file.endswith('.jpg'):
+                        continue
+                    image_id_jpg = image_file.split('_')[-1] # "<image_id>.jpg"
+                    id = int(image_id_jpg.split('.')[0]) # <image_id> in int format
+                    self.id_to_imagename[id] = image_file # filename sorted by the id {image_id: image_name}
+
+                 #for validation images 
+                self.path = r'D:\MSc\קורסים\למידה עמוקה\VQA\val'
+                for image_file in os.listdir(self.path): # iterate over all the files in the path directory
+                    if not image_file.endswith('.jpg'):
+                        continue
+                    image_id_jpg = image_file.split('_')[-1] # "<image_id>.jpg"
+                    id = int(image_id_jpg.split('.')[0]) # <image_id> in int format
+                    self.id_to_imagename[id] = image_file # filename sorted by the id {image_id: image_name}
+                
+                self.image_size = 224+224
+                self.central_fraction = 0.875
+                self.transform = transforms.Compose([
+                transforms.Scale(int(self.image_size / self.central_fraction)),
+                transforms.CenterCrop(self.image_size),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]),])
+                
+                
+                
+                id_to_imagename = self.id_to_imagename
+                return id_to_imagename
+            
+            
+            
+            
+            
         def __getitem__(self, index,train_flag):
             ''' the item is (image,question,answer)'''
             if train_flag == 1:
@@ -332,8 +369,15 @@ class VQA(Dataset):
                 #transform the question words to index
                 for word in range(len(self.train_tokens[index][0])):
                      question_vector[word] = self.question_word_dict[self.train_tokens[index][0][word]]
+                 
+                self.path = r'D:\MSc\קורסים\למידה עמוקה\VQA\train'
+                image_file = self.id_to_imagename[self.train_tokens[index][2]]
+                path = os.path.join(self.path, self.id_to_filename[self.train_tokens[index][2]])
+                img = Image.open(path).convert('RGB')
+                img = self.transform(img)
+
                 
-                item = (question_vector,answer_vector)
+                item = (img,question_vector,answer_vector)
                 return item
                 
                 '''sharon add here the image preprocess and what the model need to get '''
@@ -343,7 +387,14 @@ class VQA(Dataset):
                  answer_vector = self.answer_dict[self.val_tokens[index][1]]
                  for word in range(len(self.val_tokens[index][0])):
                      question_vector[word] = self.question_word_dict[self.val_tokens[index][0][word]]
-                 item = (question_vector,answer_vector)
+                     
+                 self.path = r'D:\MSc\קורסים\למידה עמוקה\VQA\val'
+                 image_file = self.id_to_imagename[self.train_tokens[index][2]]
+                 path = os.path.join(self.path, self.id_to_filename[self.train_tokens[index][2]])
+                 img = Image.open(path).convert('RGB')
+                 img = self.transform(img)
+
+                 item = (img,question_vector,answer_vector)
                  return item
                 
 
@@ -354,64 +405,23 @@ if __name__ == '__main__':
     mor1 = dataset._get_entires(train_flag=1)
     mor = dataset._get_entires(train_flag=0)
     
+    
     sas = dataset.create_answer_dict()
     #tokenize
     niko = dataset.tokenize(train_flag=0)
     niko = dataset.tokenize(train_flag=1)
     #create the dictioneries 
     shiki = dataset.create_question_dict()
-
+    sharon = dataset.create_image_dict()
     print(dataset.__getitem__(90,1))
     end = time.time()
     print(f"run time {end-start:.4}")
     
     
-    
-    # train_answer_file = 'v2_mscoco_train2014_annotations.json'
-    # val_answer_file = 'v2_mscoco_val2014_annotations.json'
-    # with open(train_answer_file) as f:
-    #     train_annotations = json.load(f)['annotations']
-    
-       
-    # with open(val_answer_file) as f:
-    #     val_annotations = json.load(f)['annotations']
-        
-    # index = 1
-    # answer_dict = {}
-    # answer_list =[]
-    # processes_answers = []
-    # for entry in train_annotations:
-    #     x = preprocess_answer(entry['multiple_choice_answer'])
-    #     if x not in processes_answers:
-    #         answer_dict[x] = index
-    #         processes_answers.append(x)
-    #         index +=1
-            
-    # for entry in val_annotations:
-    #     x = preprocess_answer(entry['multiple_choice_answer'])
-    #     if x not in processes_answers:
-    #         answer_dict[x] = index
-    #         processes_answers.append(x)
-    #         index +=1
-    # # for token in range(len(processes_train_answers)):
-    # #     if self.train_annotations[token]['multiple_choice_answer'] not in answer_list:
-    # #         answer_list.append(self.train_annotations[token]['multiple_choice_answer'])
-    # #         answer_dict[self.train_annotations[token]['multiple_choice_answer']] = index
-    # #         index += 1
-    
-    
-    # # self.answer_dict = answer_dict                    
-    # # return answer_dict 
 
 
 
-
-
-
-
-
-
-
+ 
 
 
 
