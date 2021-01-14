@@ -9,12 +9,12 @@ import re
 import os
 import sys
 import pickle as cPickle
-import utils
+
 import time
 import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
-
+from collections import Counter
 #from dataset import Dictionary
 
 '''dicsioneris for answer preprocess''' 
@@ -176,10 +176,15 @@ class VQA_val(Dataset):
         def __init__(self,paths):
             
             ''' this part is creating the dict for answers and questions'''
-            path = 'D:\MSc\קורסים\למידה עמוקה\VQA'
-            train_images_path ='D:\MSc\קורסים\למידה עמוקה\VQA\train'
-            train_questions_file = 'v2_OpenEnded_mscoco_train2014_questions.json'
-            train_answer_file = 'v2_mscoco_train2014_annotations.json'
+            path = '/datashare'
+            train_images_path ='/datashare/train2014'
+            train_questions_file = '/datashare/v2_OpenEnded_mscoco_train2014_questions.json'
+            train_answer_file = '/datashare/v2_mscoco_train2014_annotations.json'
+
+            # path = '/datashare'
+            # train_images_path ='/datashare/val2014'
+            # train_questions_file = '/datashare/v2_OpenEnded_mscoco_train2014_questions.json'
+            # train_answer_file = '/datashare/v2_mscoco_train2014_annotations.json'
 
             with open(train_answer_file) as f:
                 self.train_annotations = json.load(f)['annotations']
@@ -196,8 +201,8 @@ class VQA_val(Dataset):
             
             ''' start the  dataset'''
             self.path_questions,self.path_annotations,self.path_images = paths
-            print(self.path_images)
-            print(self.path_annotations)
+            # print(self.path_images)
+            # print(self.path_annotations)
             with open(self.path_annotations) as f:
                 self.annotations = json.load(f)['annotations']
             
@@ -266,16 +271,25 @@ class VQA_val(Dataset):
             question_word_list =[]
             for token in range(len(self.train_tokens)):
                 #run on question answer token
+                #print(self.train_tokens[token][0])
                 for word in range(len(self.train_tokens[token][0])):
-                    #check if the word is part of the dict
-                    if self.train_tokens[token][0][word] not in question_word_list:
-                        #add the word to the dict
-                        question_word_list.append(self.train_tokens[token][0][word])
-                        question_word_dict[self.train_tokens[token][0][word]] = index
-                        index += 1
-                        
+                    #print(self.train_tokens[token][0][word])
+                    #print(entries[token][word-1])
+                    question_word_list.append(self.train_tokens[token][0][word])
+            
+            
+            common_word = Counter(question_word_list)
+            common_word = common_word.most_common(1000)
+            
+            for i in range(len(common_word)):
+                question_word_dict[common_word[i][0]] = index
+                index += 1
+            
+            #adding key to known words
+            question_word_dict['unknown'] = 1001
+            self.question_word_dict  = question_word_dict 
+            return question_word_dict 
 
-            return question_word_dict
         
         def create_answer_dict(self):
             ''' create dictuniry for filltered answers  only in training'''
@@ -296,7 +310,7 @@ class VQA_val(Dataset):
             #for train images 
             '''need to change this to the correct folder'''
             ''' SHARON MAYBE YOU CAN USE!!!! self.path_images'''
-            self.path = r'D:\MSc\קורסים\למידה עמוקה\VQA\train'
+            self.path = '/datashare/val2014'
             self.id_to_imagename = {}
             for image_file in os.listdir(self.path): # iterate over all the files in the path directory
                 if not image_file.endswith('.jpg'):
@@ -318,11 +332,13 @@ class VQA_val(Dataset):
             self.image_size = 224+224
             self.central_fraction = 0.875
             self.transform = transforms.Compose([
-            transforms.Scale(int(self.image_size / self.central_fraction)),
-            transforms.CenterCrop(self.image_size),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225]),])
+                # transforms.Scale(int(self.image_size / self.central_fraction)),
+                # transforms.CenterCrop(self.image_size),
+                transforms.RandomResizedCrop(64),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225]), ])
                 
             return self.id_to_imagename
         
@@ -343,41 +359,19 @@ class VQA_val(Dataset):
                 answer_vector = self.answer_dict[self.tokens[index][1]]
             else:
                 # the model will be wrong
-                answer_vector = len(self.answer_dict)+10 # class that the network cant predict
+                answer_vector = len(self.answer_dict)+1 # class that the network cant predict
             #transform the question words to index
             for word in range(len(self.tokens[index][0])):
+                if self.tokens[index][0][word] in self.question_word_dict:
                   question_vector[word] = self.question_word_dict[self.tokens[index][0][word]]
                  
-            image_file = self.id_to_imagename[self.tokens[index][2]]
-            path = os.path.join(self.path_images, self.id_to_filename[self.train_tokens[index][2]])
+                else:
+                    question_vector[word] = self.question_word_dict['unknown']
+            # image_file = self.id_to_imagename[self.train_tokens[index][2]]
+
+            path = os.path.join(self.path_images, self.id_to_imagename[self.tokens[index][2]])
             img = Image.open(path).convert('RGB')
             img = self.transform(img)
-            item = (question_vector,answer_vector)
+            item = (question_vector,img,answer_vector) #TODO check with Mor
             return item
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
-
-
-
-
-
-
-
-
 

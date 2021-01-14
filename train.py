@@ -9,7 +9,7 @@ import re
 import os
 import sys
 import pickle as cPickle
-
+import matplotlib.pyplot as plt
 import time
 import numpy as np
 import torchvision.transforms as transforms
@@ -44,7 +44,7 @@ if __name__ == '__main__':
         
     train_dataset = training_dataset_class.VQA_train(('/datashare/v2_OpenEnded_mscoco_train2014_questions.json','/datashare/v2_mscoco_train2014_annotations.json','/datashare/train2014'))
     val_dataset = val_dataset_class.VQA_val(('/datashare/v2_OpenEnded_mscoco_val2014_questions.json','/datashare/v2_mscoco_val2014_annotations.json','/datashare/val2014'))
-    batch_size = 128
+    batch_size = 96
     train_loader = DataLoader(train_dataset, batch_size ,shuffle=True, num_workers=0,drop_last=True)
     test_loader = DataLoader(val_dataset, batch_size ,shuffle=True, num_workers=0,drop_last=True)
     question_dict_len = training_dataset_class.VQA_train.get_question_dic_len(train_dataset)
@@ -96,21 +96,21 @@ if __name__ == '__main__':
             # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
             # layers.append(nn.BatchNorm2d(out_list[i]))
             # layers.append(nn.ReLU())
-            i = 6
-            layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
-            layers.append(nn.BatchNorm2d(out_list[i]))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(0.5))
-            layers.append(nn.MaxPool2d(kernel_size=pool_k, stride=pool_k))
+            # i = 6
+            # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
+            # layers.append(nn.BatchNorm2d(out_list[i]))
+            # layers.append(nn.ReLU())
+            # layers.append(nn.Dropout(0.5))
+            # layers.append(nn.MaxPool2d(kernel_size=pool_k, stride=pool_k))
 
             i = 7
             layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
             layers.append(nn.BatchNorm2d(out_list[i]))
             layers.append(nn.ReLU())
-            i = 8
-            layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
-            layers.append(nn.BatchNorm2d(out_list[i]))
-            layers.append(nn.ReLU())
+            # i = 8
+            # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
+            # layers.append(nn.BatchNorm2d(out_list[i]))
+            # layers.append(nn.ReLU())
             # i = 9
             # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
             # layers.append(nn.BatchNorm2d(out_list[i]))
@@ -122,10 +122,10 @@ if __name__ == '__main__':
             # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
             # layers.append(nn.BatchNorm2d(out_list[i]))
             # layers.append(nn.ReLU())
-            i = 11
-            layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
-            layers.append(nn.BatchNorm2d(out_list[i]))
-            layers.append(nn.ReLU())
+            # i = 11
+            # layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
+            # layers.append(nn.BatchNorm2d(out_list[i]))
+            # layers.append(nn.ReLU())
             i = 12
             layers.append(nn.Conv2d(in_list[i], out_list[i], kernel_size=kernels, padding=kernels // 2))
             layers.append(nn.BatchNorm2d(out_list[i]))
@@ -138,12 +138,14 @@ if __name__ == '__main__':
             layers2 = []
             dim1 = 2048
             dim1 = 8192
-            dim2 = 4096  #
+            # dim2 = 4096  #
+            # dim2 = 8192  #
+            dim2 = 32768  #
 
             # print('========')
             # print('linear dimensions   ',dim1, dim2)
             # print('========')
-            layers2.append(nn.Linear(dim1, dim2))
+            # layers2.append(nn.Linear(dim1, dim2))
             layers2.append(nn.BatchNorm1d(dim2))
             layers2.append(nn.ReLU())
             # layers2.append(nn.Linear(dim2, dim2))
@@ -214,31 +216,13 @@ if __name__ == '__main__':
             self.vgg_model = VGG().cuda()
             self.fc1 = nn.Linear(1024,1000)
             self.drop = nn.Dropout(0.5)
-            self.fc2 = nn.Linear(1000,filter_answer_dict_len+1)
+            self.fc2 = nn.Linear(1000,filter_answer_dict_len+2)
             self.relu = nn.ReLU()
 
         
         def forward(self,question, image):
-
             image_featues = self.vgg_model(image)
             question_features = self.lstm_model(question)
-            # question_features = self.lstm_model(question)
-
-            # image_featues = self.vgg_model(image)
-            # image_featues = image_featues.cuda()
-
-
-
-            # print('====== question feature  ======')
-            # print('type:',type(question_features))
-            # print('size:',question_features.size())
-            # print('values:',question_features)
-            # print('====== image feature type ======')
-            # print('type:', type(image_featues))
-            # print('size:', image_featues.size())
-            # print('values:', image_featues)
-
-
             output = torch.mul(question_features, image_featues)
             output = self.relu(output)
             output = self.fc1(output)
@@ -259,17 +243,17 @@ if __name__ == '__main__':
     for i in range(batch_size):
         lengths.append(20)
     
-    epochs = 5
+    epochs = 4
     train_accuracy = np.zeros(epochs)
     test_accuracy = np.zeros(epochs)
+    losses_test = []
+    losses_train = []
     accs_train=[]
     accs_test=[]
     for epoch in range(epochs):
         torch.save(vqa_model.state_dict(), f'model{epoch}.pkl')
         running_loss = 0
         running_loss_test = 0
-        losses_val=[]
-        losses_train=[]
         print('epoch = ', epoch)
         for i,(data) in enumerate(train_loader):
             question = data[0].long().cuda()
@@ -277,19 +261,8 @@ if __name__ == '__main__':
             answer = data[2].cuda()
             optimizer.zero_grad()
             preds = vqa_model.forward(question,image)
-            ###### todo -check acc calculation
-            # print('========')
-            # print(image.size())
-            # print('preds:    ', preds)
-            # print('size preds:     ', preds.size())
-            # print('answer:    ', answer)
-            # print('size answer:    ', answer.size())
             acc_train = batch_accuracy(preds, answer)
-            #print('acc_train', acc_train)
             accs_train.append(acc_train)
-            # print('========')
-
-            #####
             loss = criterion(preds,answer)
             running_loss += loss
             loss.backward()
@@ -297,50 +270,34 @@ if __name__ == '__main__':
             # print(f'train loss{loss}')
         print(f'train accuracy {acc_train}')
         losses_train.append(running_loss)
-        train_accuracy[epoch] = running_loss
+        train_accuracy[epoch] = acc_train
         print('acc_train', acc_train)
         torch.save(vqa_model.state_dict(), f'model{epoch}.pkl')
 
 
-    '''after the train the network will run the validation data '''
-    torch.cuda.empty_cache()
-    with torch.no_grad():
-        for i,(data) in enumerate(test_loader):
-            question = data[0].cuda()
-            # question = data[0]
-            image = data[1].cuda()
-            # image = data[1]
-            answer = data[2].cuda()
-            # answer = data[2]
-            preds = vqa_model.forward(question.long(),image).cuda()
-            # print('preds size:', preds.size())
-            ###### todo -check acc calculation
-            acc_test = batch_accuracy(preds, answer)
-            accs_test.append(acc_test)
-
-            #####
-            loss = criterion(preds,answer)
-            running_loss_test += loss
-            print(f'Test loss {loss}')
-            # print(f'train accuracy {acc_test}')
-
-            losses_val.append(running_loss_test)
-
-        print('acc_test', acc_test)
-    losses_train.append(running_loss_test)
-
-    # end = time.time()
-    # print(f"run time {end-start:.4}")
-    # print('train_loss', test_accuracy)
-    #print('train_loss: ',train_accuracy)
-    # np.savetxt('test_accuracy.txt', test_accuracy, delimiter=',')
-    # np.savetxt('train_accuracy.txt', train_accuracy, delimiter=',')
+        '''after the train the network will run the validation data '''
+        torch.cuda.empty_cache()
+        with torch.no_grad():
+            for i,(data) in enumerate(test_loader):
+                question = data[0].cuda()
+                # question = data[0]
+                image = data[1].cuda()
+                # image = data[1]
+                answer = data[2].cuda()
+                # answer = data[2]
+                preds = vqa_model.forward(question.long(),image).cuda()
+                # print('preds size:', preds.size())
+                ###### todo -check acc calculation
+                acc_test = batch_accuracy(preds, answer)
+                accs_test.append(acc_test)
+                loss = criterion(preds,answer)
+                running_loss_test += loss
+            test_accuracy[epoch] = acc_test
+            losses_test.append(running_loss_test)
+            print('acc_test ', acc_test)
 
 
 
-    # import os
-    # cwd = os.getcwd()
-    #torch.save(vqa_model.state_dict(), '/hw2_dl/model.pkl')
     with open('accs_train.txt', 'w') as f:
         for item in accs_train:
             f.write("%s\n" % item)
@@ -353,10 +310,19 @@ if __name__ == '__main__':
         for item in accs_test:
             f.write("%s\n" % item)
 
-    with open('losses_train.txt', 'w') as f:
-        for item in losses_train:
+    with open('losses_test.txt', 'w') as f:
+        for item in losses_test:
             f.write("%s\n" % item)
 
+
+
+    """ plot accuracy """
+    plt.plot(train_accuracy,label = 'Train plot')
+    plt.plot(test_accuracy,label = 'Test plot')
+    plt.legend()
+    plt.grid()
+    plt.xlabel("epoch number")
+    plt.ylabel("accuracy")
 
 
 
