@@ -163,7 +163,7 @@ def filter_answers(answers_dset, min_occurence):
             
 
 
-    print('Num of answers that appear >= %d times: %d' % (
+    #print('Num of answers that appear >= %d times: %d' % (
         min_occurence, len(occurence)))
     return occurence
 
@@ -359,7 +359,7 @@ class VQA_val(Dataset):
                 answer_vector = self.answer_dict[self.tokens[index][1]]
             else:
                 # the model will be wrong
-                answer_vector = len(self.answer_dict)+1 # class that the network cant predict
+                answer_vector = 0 # class that the network cant predict
             #transform the question words to index
             for word in range(len(self.tokens[index][0])):
                 if self.tokens[index][0][word] in self.question_word_dict:

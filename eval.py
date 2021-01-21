@@ -47,7 +47,7 @@ if __name__ == '__main__':
                                                       '/datashare/train2014'))
     val_dataset = val_dataset_class.VQA_val(('/datashare/v2_OpenEnded_mscoco_val2014_questions.json',
                                              '/datashare/v2_mscoco_val2014_annotations.json', '/datashare/val2014'))
-    batch_size = 64
+    batch_size = 96
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True, num_workers=0, drop_last=True)
     test_loader = DataLoader(val_dataset, batch_size, shuffle=True, num_workers=0, drop_last=True)
     question_dict_len = training_dataset_class.VQA_train.get_question_dic_len(train_dataset)
@@ -234,12 +234,13 @@ if __name__ == '__main__':
             return output
 
 
-    vqa_model = MLP()
-    vqa_model = vqa_model.cuda()
-    vqa_model.load_state_dict(torch.load('/home/student/hw2_dl/model4.pkl'))
+    model = MLP()
+    model = model.cuda()
+    #model.load_state_dict(torch.load('model.pkl'))
+    model.load_state_dict(torch.load('model.pkl', map_location=lambda storage, loc: storage))
     criterion = nn.CrossEntropyLoss().cuda()  # because classification problem
-    optimizer = torch.optim.Adam(vqa_model.parameters(), lr=0.001)
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    print(f'vqa model: model.pkl ')
     # creating list of lengths of each question
     lengths = []
     for i in range(batch_size):
@@ -254,16 +255,17 @@ if __name__ == '__main__':
             question = data[0].cuda()
             image = data[1].cuda()
             answer = data[2].cuda()
-            preds = vqa_model.forward(question.long(), image).cuda()
+            preds = model.forward(question.long(), image).cuda()
             loss = criterion(preds, answer)
             val_test = batch_accuracy(preds, answer)
-            print(f'batch {i} Test loss {loss:.3} accuracy{val_test}')
+
             val_loss_list.append(loss)
             val_acc_list.append(val_test)
-        average_acc = sum(val_acc_list) / len(val_acc_list)
-        average_loss = sum(val_loss_list) / len(val_loss_list)
+            average_acc = 100*sum(val_acc_list) / (batch_size+i*batch_size)
+            #average_loss = (sum(val_loss_list) / len(val_loss_list))
+            print(f'batch {i} average accuracy {average_acc:.3} ')
+        average_acc = (sum(val_acc_list) / len(val_acc_list))
     print('##################################')
-    print('average validation loss:', average_loss)
     print('average validation accuracy:',average_acc)
 
 

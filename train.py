@@ -233,7 +233,6 @@ if __name__ == '__main__':
             
     vqa_model = MLP()
     vqa_model = vqa_model.cuda()
-    vqa_model.load_state_dict(torch.load('/home/student/hw2_dl/model4.pkl'))
     criterion = nn.CrossEntropyLoss().cuda() #because classification problem
     optimizer = torch.optim.Adam(vqa_model.parameters(),lr=0.001)
     
@@ -264,17 +263,21 @@ if __name__ == '__main__':
             accs_train.append(acc_train)
             loss = criterion(preds,answer)
             running_loss += loss
+
             loss.backward()
             optimizer.step()
             losses_train.append(loss)
-            print(f'batch {i} Train loss {loss:.3} accuracy{acc_train}')
+            average_acc = 100*(sum(accs_train) / len(accs_train))
+            average_loss = 100*(sum(losses_train) / len(losses_train))
+            #print(f'batch {i} Train loss {loss:.3} accuracy{acc_train}')
 
 
-        print(f'train accuracy {max(acc_train)}')
+        #print(f'train accuracy {max(acc_train)}')
 
         train_accuracy[epoch] = acc_train
         torch.save(vqa_model.state_dict(), f'model{epoch}.pkl')
-
+        print('average train loss:', average_loss)
+        print('average train accuracy:', average_acc)
 
         '''after the train the network will run the validation data '''
         torch.cuda.empty_cache()
@@ -292,10 +295,12 @@ if __name__ == '__main__':
                 acc_test = batch_accuracy(preds, answer)
                 accs_test.append(acc_test)
                 loss = criterion(preds,answer)
-                running_loss_test += loss
+                losses_test.append(loss)
+                average_acc = 100*(sum(accs_test) / len(accs_test))
+                average_loss = 100*(sum(losses_test) / len(losses_test))
             test_accuracy[epoch] = acc_test
-            losses_test.append(loss)
-            print('acc_test ', acc_test)
+            #print('average test loss:', average_loss)
+            print('average test accuracy:', average_acc)
 
 
 
